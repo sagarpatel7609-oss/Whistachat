@@ -10,11 +10,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 1e8 }); // Increase max upload size to 100MB
-const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
 const ROLE_POWER = {
     owner: 4,
     admin: 3,

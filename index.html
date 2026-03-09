@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whistachat</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=2">
+</head>
+
+<body>
+
+    <div class="phone-container">
+
+        <!-- LOGIN SCREEN -->
+        <main id="login-screen" class="screen active">
+            <div class="auth-wrapper">
+                <div class="logo large-logo">
+                    <span class="material-symbols-rounded neon-text" style="font-size: 40px;">all_inclusive</span>
+                    <h1 class="neon-text">Whistachat</h1>
+                </div>
+                <form id="auth-form" class="glass-panel auth-card">
+                    <h2 id="auth-title">Welcome Back</h2>
+                    <p id="auth-subtitle">Enter your details to log in.</p>
+
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="auth-email" placeholder="neon@whistachat.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" id="auth-pass" placeholder="••••••••" required
+                                style="width: 100%; padding-right: 40px;">
+                            <span class="material-symbols-rounded password-toggle-btn" id="toggle-password"
+                                style="position: absolute; right: 10px; cursor: pointer; color: var(--text-muted); font-size: 20px;">visibility_off</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group"
+                        style="flex-direction: row; align-items: center; gap: 8px; margin-top: 5px;">
+                        <input type="checkbox" id="remember-me" style="width: auto; margin: 0; cursor: pointer;">
+                        <label for="remember-me"
+                            style="margin: 0; font-size: 14px; cursor: pointer; color: var(--text-muted);">Remember
+                            Me</label>
+                    </div>
+
+                    <div id="auth-error" class="error-message"
+                        style="display:none; color: #ff4d4d; margin-top: 10px; font-size: 14px; text-align: center; font-weight: 600;">
+                    </div>
+
+                    <button type="submit" id="auth-submit-btn" class="primary-btn mt-4">Login</button>
+                    <p class="auth-toggle">Don't have an account? <span id="toggle-auth-mode">Sign Up</span></p>
+                </form>
+            </div>
+        </main>
+
+        <!-- SETUP USERNAME SCREEN -->
+        <main id="setup-username-screen" class="screen">
+            <div class="auth-wrapper">
+                <div class="glass-panel auth-card">
+                    <h2>Choose Identity 🥷</h2>
+                    <p>Pick a unique username so friends can find you.</p>
+
+                    <div class="input-group mt-4">
+                        <label>Username</label>
+                        <div class="username-input-wrapper">
+                            <span class="at-symbol">@</span>
+                            <input type="text" id="setup-username" placeholder="neon_ninja">
+                            <span id="username-status-icon" class="material-symbols-rounded"></span>
+                        </div>
+                        <small id="username-hint" class="text-muted">Must be unique, letters & numbers only.</small>
+                    </div>
+
+                    <button id="complete-setup-btn" class="primary-btn mt-4" disabled>Join Whistachat</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- HOME SCREEN -->
+        <main id="home-screen" class="screen">
+            <header class="glass-header">
+                <div class="logo">
+                    <span class="material-symbols-rounded neon-text">all_inclusive</span> Whistachat
+                </div>
+                <div class="header-actions" style="display:flex; gap: 8px;">
+                    <button id="header-notif-btn" class="icon-btn"><span
+                            class="material-symbols-rounded">notifications</span></button>
+                    <button id="nav-profile-btn" class="icon-btn"><span
+                            class="material-symbols-rounded">account_circle</span></button>
+                </div>
+            </header>
+
+            <div class="feed-tabs">
+                <button class="tab-btn active" id="tab-btn-chats" onclick="switchHomeTab('chats')">Chats</button>
+                <button class="tab-btn" id="tab-btn-feed" onclick="switchHomeTab('feed')">Social Feed</button>
+            </div>
+
+            <section class="chats-section active-view" id="home-chats-view">
+                <h3>Recent Chats</h3>
+
+                <div class="search-bar-container" style="margin-bottom: 20px;">
+                    <input type="text" id="user-search-input" placeholder="Search users by @username..."
+                        style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none; margin-bottom: 8px;">
+                    <div id="user-search-results" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                </div>
+
+                <div class="chat-list" id="chat-list-container">
+                    <!-- Dynamic chat items will load here -->
+                </div>
+            </section>
+
+            <section class="feed-section hidden" id="home-feed-view">
+                <div id="social-feed-container">
+                    <!-- Feed injected via JS -->
+                </div>
+            </section>
+
+            <div class="nav-fab-wrapper" style="position: absolute; bottom: 85px; right: 20px; z-index: 100;">
+                <button class="fab" id="home-fab" style="position: relative;">
+                    <span class="material-symbols-rounded" id="home-fab-icon">chat</span>
+                    <span id="chat-unread-badge"
+                        style="position: absolute; top: -5px; right: -5px; background: var(--danger-red); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        0
+                    </span>
+                </button>
+            </div>
+        </main>
+
+        <!-- CHAT SCREEN -->
+        <main id="chat-screen" class="screen">
+            <header class="glass-header">
+                <button id="back-to-home" class="icon-btn"><span
+                        class="material-symbols-rounded">arrow_back_ios_new</span></button>
+                <div class="chat-header-info" style="cursor: pointer;" id="chat-header-profile-link"
+                    onclick="openChatHeaderProfile()">
+                    <div class="avatar"><img id="active-chat-avatar" src="https://i.pravatar.cc/100?img=1" alt="Avatar"
+                            onclick="openChatHeaderProfile()" style="cursor:pointer;">
+                    </div>
+                    <div>
+                        <h4 id="active-chat-name" onclick="openChatHeaderProfile()" style="cursor:pointer;">Sana ✨</h4>
+                        <div id="chat-header-status" class="chat-status"></div>
+                        <span id="typing-indicator" class="status neon-text-small hidden">Typing...</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="start-voice-call-btn" class="icon-btn"><span
+                            class="material-symbols-rounded">call</span></button>
+                    <button id="start-call-btn" class="icon-btn"><span
+                            class="material-symbols-rounded">videocam</span></button>
+                </div>
+            </header>
+
+            <div class="messages-container" id="messages-area">
+                <!-- Messages injected via JS -->
+            </div>
+
+            <div class="chat-input-container" style="margin: 10px 20px 20px;">
+                <button class="icon-btn" id="attach-file-btn" title="Attach file"><span
+                        class="material-symbols-rounded">add</span></button>
+                <input type="file" id="chat-attachment-input" accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                    class="hidden">
+                <button class="icon-btn" id="mic-btn"><span class="material-symbols-rounded">mic</span></button>
+                <input type="text" id="message-input" placeholder="Type a message..." autocomplete="off">
+                <button id="send-btn" class="icon-btn highlight"><span
+                        class="material-symbols-rounded">send</span></button>
+            </div>
+        </main>
+
+        <main id="call-screen" class="screen" style="background: #111; z-index: 1000;">
+            <div class="aura-cast-border"></div>
+            <img src="" class="call-bg" alt="Video Call Background" id="call-bg-image"
+                style="object-fit: cover; filter: blur(40px) brightness(0.4); transform: scale(1.2); position: absolute; width:100%; height:100%; top:0; left:0; z-index: 0;">
+
+            <div id="remote-video" class="call-video-stream hidden"
+                style="width: 100%; height: 100%; position: absolute; top:0; left:0; z-index: 1;"></div>
+
+            <div id="local-video" class="call-video-stream hidden"
+                style="position: absolute; width: 100px; height: 150px; bottom: 120px; right: 20px; z-index: 15; border-radius: 16px; border: 1px solid rgba(255,255,255,0.2); overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+            </div>
+
+            <header class="call-header"
+                style="z-index: 10; position: absolute; top: 20px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 20px;">
+                <button id="end-call-top" class="icon-btn" style="color: var(--text-main);"><span
+                        class="material-symbols-rounded">expand_more</span></button>
+                <div>
+                    <button id="call-camera-switch-btn" class="icon-btn" style="color: var(--text-main);"><span
+                            class="material-symbols-rounded">flip_camera_ios</span></button>
+                    <button class="icon-btn" style="color: var(--text-main);"><span
+                            class="material-symbols-rounded">more_horiz</span></button>
+                </div>
+            </header>
+
+            <div id="call-center-info"
+                style="position: absolute; top: 15%; left: 50%; transform: translateX(-50%); text-align: center; z-index: 5; color: var(--text-main); display: flex; flex-direction: column; align-items: center; width: 100%;">
+                <img id="call-contact-avatar" src=""
+                    style="width: 130px; height: 130px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.1); object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 20px;">
+                <h2 id="call-contact-name"
+                    style="font-size: 26px; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,0.5); margin-bottom: 4px; letter-spacing: 0.5px;">
+                    Contact Name</h2>
+                <p id="call-type-label"
+                    style="font-size: 14px; opacity: 0.8; font-weight: 500; text-transform: uppercase; margin-bottom: 2px; color: var(--neon-cyan);">
+                    Video Call</p>
+                <p id="call-status-text"
+                    style="font-size: 16px; opacity: 0.8; font-weight: 400; text-shadow: 0 1px 5px rgba(0,0,0,0.5);">
+                    Calling...</p>
+            </div>
+
+            <div class="audio-visualizer hidden" id="audio-visualizer"
+                style="z-index: 6; position: absolute; top: 40%; left: 50%; transform: translateX(-50%);">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+
+            <div class="call-controls"
+                style="position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; background: rgba(30, 30, 30, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); display: flex; justify-content: space-around; align-items: center; padding: 15px 20px; border-radius: 40px; z-index: 20; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.3); touch-action: none !important; user-select: none !important; -webkit-user-select: none !important; -webkit-touch-callout: none !important;">
+                <button class="control-btn" id="call-camera-btn"
+                    style="background: transparent; color: var(--text-main); box-shadow: none; width: 45px; height: 45px;"><span
+                        class="material-symbols-rounded" style="font-size: 26px;">videocam_off</span></button>
+                <button class="control-btn" id="call-mic-btn"
+                    style="background: transparent; color: var(--text-main); box-shadow: none; width: 45px; height: 45px;"><span
+                        class="material-symbols-rounded" style="font-size: 26px;">mic_off</span></button>
+                <button class="control-btn" id="call-speaker-btn"
+                    style="background: transparent; color: var(--text-main); box-shadow: none; width: 45px; height: 45px;"><span
+                        class="material-symbols-rounded" style="font-size: 26px;">volume_up</span></button>
+                <button id="end-call-btn" class="control-btn end-call"
+                    style="background: #ff3b30; color: white; width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(255,59,48,0.4);"><span
+                        class="material-symbols-rounded" style="font-size: 28px;">call_end</span></button>
+            </div>
+        </main>
+
+        <!-- PROFILE SCREEN -->
+        <main id="profile-screen" class="screen">
+            <header class="glass-header transparent">
+                <button id="profile-back-btn" class="icon-btn"><span
+                        class="material-symbols-rounded">arrow_back_ios_new</span></button>
+                <h4>Profile</h4>
+                <div style="display: flex; gap: 8px;">
+                    <button id="header-notif-btn-profile" class="icon-btn"><span
+                            class="material-symbols-rounded">notifications</span></button>
+                    <button class="icon-btn" onclick="document.body.classList.toggle('dark-mode')"><span
+                            class="material-symbols-rounded">dark_mode</span></button>
+                </div>
+            </header>
+
+            <div class="profile-content">
+                <div class="profile-avatar-wrapper">
+                    <img src="https://i.pravatar.cc/100?img=12" alt="My Profile" id="profile-img-element">
+                    <div class="vibe-status">🎧 Vibing</div>
+                    <button id="change-avatar-btn" class="icon-btn small-btn avatar-edit-btn"><span
+                            class="material-symbols-rounded" style="font-size: 16px;">edit</span></button>
+                    <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                </div>
+
+                <h2 class="profile-name" id="display-profile-name">Arjun_Z</h2>
+                <p class="profile-handle" id="display-profile-handle">@arjun.z</p>
+
+                <div class="verification-dashboard glass-panel mt-4">
+                    <div class="flex-row">
+                        <div style="flex: 1;">
+                            <h4>Verification Badge ✨</h4>
+                            <p id="verify-status-text">Get the official glowing checkmark.</p>
+                        </div>
+                        <button id="btn-request-verify" class="small-btn">Request</button>
+                    </div>
+                </div>
+
+                <div class="privacy-dashboard glass-panel mt-4">
+                    <div class="flex-row">
+                        <div>
+                            <h4>Ghost Mode 👻</h4>
+                            <p>Hide online status & read receipts.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="user-stats-container mt-4"
+                    style="display: flex; gap: 20px; justify-content: center; text-align: center;">
+                    <div>
+                        <h3 id="display-followers-count" class="neon-text-small" style="margin: 0;">0</h3>
+                        <p class="text-muted" style="font-size: 12px; margin: 0;">Followers</p>
+                    </div>
+                    <div>
+                        <h3 id="display-following-count" class="neon-text-small" style="margin: 0;">0</h3>
+                        <p class="text-muted" style="font-size: 12px; margin: 0;">Following</p>
+                    </div>
+                </div>
+                <button id="btn-follow-user" class="primary-btn mt-4" style="display: none;">Follow</button>
+
+                <div class="user-details-section glass-panel mt-4">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0;">About</h4>
+                        <button class="icon-btn small-btn edit-profile-btn" title="Edit About"><span
+                                class="material-symbols-rounded" style="font-size: 16px;">edit</span></button>
+                    </div>
+                    <div class="detail-row" style="margin-bottom: 8px;">
+                        <span class="material-symbols-rounded text-muted"
+                            style="font-size: 16px; vertical-align: middle;">menu_book</span>
+                        <span id="display-bio" style="font-size: 14px; margin-left: 8px;">No bio yet</span>
+                    </div>
+                    <div class="detail-row" style="margin-bottom: 8px;">
+                        <span class="material-symbols-rounded text-muted"
+                            style="font-size: 16px; vertical-align: middle;">location_on</span>
+                        <span id="display-location" style="font-size: 14px; margin-left: 8px;">Earth</span>
+                    </div>
+                    <div class="detail-row"
+                        style="margin-top: 12px; border-top: 1px solid var(--border-glass); padding-top: 10px;">
+                        <h5 class="text-muted" style="font-size: 12px; margin-bottom: 5px;">About Me</h5>
+                        <p id="display-about" style="font-size: 14px; line-height: 1.5; white-space: pre-wrap;">Tell us
+                            about yourself...</p>
+                    </div>
+                </div>
+
+                <button id="btn-enable-notifications" class="primary-btn mt-4"
+                    style="background: var(--neon-purple); border-color: var(--neon-purple); display: none;">
+                    <span class="material-symbols-rounded"
+                        style="vertical-align: middle; font-size: 18px; margin-right: 5px;">notifications_active</span>
+                    Enable Notifications
+                </button>
+
+                <button id="btn-admin-dashboard" class="primary-btn danger-outline mt-4 hidden">Mod Dashboard
+                    🛡️</button>
+                <div style="display: flex; gap: 8px; justify-content: center; width: 100%;">
+                    <button id="btn-follow-user" class="primary-btn mt-4">Follow</button>
+                    <button id="btn-message-user" class="primary-btn dark mt-4"
+                        style="background: var(--bg-panel); color: var(--text-main); border: 1px solid var(--border-glass);">Message</button>
+                </div>
+
+                <button class="primary-btn mt-4 edit-profile-btn">Edit Details</button>
+                <button id="btn-logout" class="primary-btn mt-4"
+                    style="background: rgba(150,150,150,0.1); color: var(--danger-red);">Logout</button>
+
+                <div id="admin-role-controls" class="glass-panel mt-4 hidden"
+                    style="border: 1px solid var(--danger-red);">
+                    <h4 style="color: var(--danger-red); font-size: 14px; margin-bottom: 10px;">Admin Tools</h4>
+                    <button id="btn-toggle-admin-role" class="small-btn danger-outline" style="width: 100%;">Grant Admin
+                        Rights</button>
+                </div>
+
+                <h4 style="margin-top: 30px;">Feed</h4>
+                <div id="profile-feed-container"></div>
+            </div>
+        </main>
+
+        <!-- ADMIN DASHBOARD SCREEN -->
+        <main id="admin-screen" class="screen">
+            <header class="glass-header">
+                <button id="admin-back-btn" class="icon-btn"><span
+                        class="material-symbols-rounded">arrow_back_ios_new</span></button>
+                <h4 style="color: var(--neon-cyan);">Mod Dashboard</h4>
+                <div style="width: 32px;"></div> <!-- Spacer -->
+            </header>
+
+            <div class="admin-content" style="padding: 20px; overflow-y: auto; flex: 1;">
+                <div class="stats-grid glass-panel"
+                    style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; text-align: center;">
+                    <div id="admin-total-users-btn"
+                        style="cursor: pointer; padding: 10px; border-radius: 12px; transition: background 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+                        onmouseout="this.style.background='transparent'">
+                        <h2 id="stat-total-users" class="neon-text">1</h2>
+                        <p class="text-muted" style="font-size: 12px;">Total Users</p>
+                    </div>
+                    <div>
+                        <h2 id="stat-pending-req" class="neon-text-small" style="color: var(--neon-cyan);">0</h2>
+                        <p class="text-muted" style="font-size: 12px;">Pending Verifications</p>
+                    </div>
+                    <div>
+                        <h2 id="stat-active-bans" class="neon-text-small" style="color: var(--danger-red);">0</h2>
+                        <p class="text-muted" style="font-size: 12px;">Active Bans</p>
+                    </div>
+                </div>
+
+                <div class="feed-tabs" style="margin-bottom: 20px; overflow-x: auto; white-space: nowrap;">
+                    <button class="tab-btn active" id="tab-admin-users" onclick="switchAdminTab('users')">Users</button>
+                    <button class="tab-btn" id="tab-admin-reports" onclick="switchAdminTab('reports')">Reports</button>
+                    <button class="tab-btn" id="tab-admin-logs" onclick="switchAdminTab('logs')">Logs</button>
+                    <button class="tab-btn" id="tab-admin-bans" onclick="switchAdminTab('bans')">Active Bans</button>
+                </div>
+
+                <div id="admin-users-view" class="active-view">
+                    <h3>Verification Requests</h3>
+                    <div id="admin-requests-list"
+                        style="margin-top: 10px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <h3>User Management</h3>
+                    <div class="search-bar-container" style="margin-top: 10px; margin-bottom: 20px;">
+                        <input type="text" id="admin-user-search-input" placeholder="Search users by @username..."
+                            style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none; margin-bottom: 8px;">
+                        <div id="admin-user-search-results" style="display: flex; flex-direction: column; gap: 8px;">
+                        </div>
+                    </div>
+
+                    <h3>Bot Management (Whistachat.AI)</h3>
+                    <div class="glass-panel"
+                        style="margin-top: 10px; padding: 15px; display: flex; align-items: center; gap: 15px;">
+                        <img id="admin-bot-avatar-preview"
+                            src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&h=200&fit=crop"
+                            style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-cyan);">
+                        <div style="flex: 1;">
+                            <h5 style="margin: 0; color: var(--text-main);">AI Profile Picture</h5>
+                            <p style="margin: 0; font-size: 12px; color: var(--text-muted);">Update the bot's global
+                                avatar.
+                            </p>
+                        </div>
+                        <button class="small-btn"
+                            onclick="document.getElementById('admin-bot-upload-input').click()">Upload
+                            DP</button>
+                        <input type="file" id="admin-bot-upload-input" accept="image/*" class="hidden">
+                    </div>
+                </div>
+
+                <div id="admin-reports-view" class="hidden">
+                    <h3>User Reports</h3>
+                    <p class="text-muted" style="font-size: 12px; margin-bottom: 15px;">Review incoming reports for
+                        posts, comments, and messages.</p>
+                    <div id="admin-reports-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                </div>
+
+                <div id="admin-logs-view" class="hidden">
+                    <h3>Moderation Action Logs</h3>
+                    <p class="text-muted" style="font-size: 12px; margin-bottom: 15px;">A chronological history of all
+                        admin actions.</p>
+                    <div id="admin-action-logs-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                </div>
+
+                <div id="admin-bans-view" class="hidden">
+                    <h3>Active Bans</h3>
+                    <p class="text-muted" style="font-size: 12px; margin-bottom: 15px;">Users currently serving a
+                        temporary or permanent ban.</p>
+                    <div class="search-bar-container" style="margin-bottom: 20px;">
+                        <input type="text" id="admin-bans-search-input" placeholder="Search banned users..."
+                            style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none;">
+                    </div>
+                    <div id="admin-active-bans-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                </div>
+        </main>
+
+        <!-- Notifications Modal -->
+        <div id="notifications-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim">
+                <div class="modal-header">
+                    <h4>Notifications</h4>
+                    <button class="icon-btn" onclick="closeModal('notifications-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <div id="notifications-list" style="margin-top: 16px; overflow-y: auto; max-height: 60vh;">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- CREATE POST MODAL -->
+        <div id="create-post-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim">
+                <div class="modal-header">
+                    <h3>New Post 🚀</h3>
+                    <button class="icon-btn" onclick="closeModal('create-post-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <div class="input-group mt-4">
+                    <label>Media File (Max 100MB)</label>
+                    <input type="file" id="post-file" accept="image/*,video/*" style="padding: 10px;">
+                    <small id="post-file-hint" class="text-muted"></small>
+                    <div id="post-media-preview-container" style="display: none; margin-top: 10px;">
+                        <img id="post-image-preview" class="hidden"
+                            style="width: 100%; border-radius: 12px; max-height: 250px; object-fit: contain; background: rgba(0,0,0,0.5);">
+                        <video id="post-video-preview" class="hidden" controls
+                            style="width: 100%; border-radius: 12px; max-height: 250px; background: rgba(0,0,0,0.5);"></video>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Caption</label>
+                    <input type="text" id="post-caption" placeholder="What's a vibe?">
+                </div>
+                <button id="submit-post-btn" class="primary-btn mt-4">Upload Post</button>
+            </div>
+        </div>
+
+        <!-- COMMENTS MODAL -->
+        <div id="comments-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim"
+                style="height: 70%; display: flex; flex-direction: column;">
+                <div class="modal-header">
+                    <h3>Comments</h3>
+                    <button class="icon-btn" onclick="closeModal('comments-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <div id="comments-list"
+                    style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; padding-bottom: 20px;">
+                    <!-- Comments injected here -->
+                </div>
+                <div class="chat-input-area" style="margin: 10px 0 0 0; padding: 0;">
+                    <input type="text" id="comment-input" placeholder="Add a comment..."
+                        style="background: var(--bg-input); padding: 12px; border-radius: 12px; color: var(--text-main);">
+                    <button id="send-comment-btn" class="icon-btn highlight"><span
+                            class="material-symbols-rounded">send</span></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDIT DETAILS MODAL -->
+        <div id="edit-details-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim">
+                <div class="modal-header">
+                    <h3>Edit Profile Details</h3>
+                    <button class="icon-btn" onclick="closeModal('edit-details-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <div class="input-group mt-4">
+                    <label>Username</label>
+                    <input type="text" id="edit-username" placeholder="New username">
+                </div>
+                <div class="input-group">
+                    <label>Bio</label>
+                    <input type="text" id="edit-bio" placeholder="Short bio...">
+                </div>
+                <div class="input-group">
+                    <label>Location</label>
+                    <input type="text" id="edit-location" placeholder="City, Country">
+                </div>
+                <div class="input-group">
+                    <label>About Yourself</label>
+                    <textarea id="edit-about" placeholder="Tell the world who you are..."
+                        style="width: 100%; height: 100px; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none; font-family: inherit; resize: none;"></textarea>
+                </div>
+                <button id="save-details-btn" class="primary-btn mt-4">Save Changes</button>
+            </div>
+        </div>
+
+        <!-- REPORT MODAL -->
+        <div id="report-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim">
+                <div class="modal-header">
+                    <h3>Report Content 🚨</h3>
+                    <button class="icon-btn" onclick="closeModal('report-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <p class="text-muted" style="font-size: 14px; margin-bottom: 10px;">Why are you reporting this?</p>
+                <div class="input-group">
+                    <select id="report-reason"
+                        style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none;">
+                        <option value="Spam">Spam or Misleading</option>
+                        <option value="Harassment">Harassment or Hate Speech</option>
+                        <option value="Inappropriate">Inappropriate Content</option>
+                        <option value="Scam">Scam or Fraud</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <button id="submit-report-btn" class="primary-btn mt-4 danger"
+                    style="background: var(--danger-red); border-color: var(--danger-red);">Submit Report</button>
+            </div>
+        </div>
+
+        <!-- BAN DURATION MODAL -->
+        <div id="ban-modal" class="modal-overlay hidden">
+            <div class="modal-content glass-panel slide-up-anim">
+                <div class="modal-header">
+                    <h3>Ban User ⚖️</h3>
+                    <button class="icon-btn" onclick="closeModal('ban-modal')"><span
+                            class="material-symbols-rounded">close</span></button>
+                </div>
+                <p class="text-muted" style="font-size: 14px; margin-bottom: 10px;">Select the ban duration for this
+                    user.
+                </p>
+                <div class="input-group">
+                    <select id="ban-duration-select"
+                        style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none;">
+                        <option value="86400000">24 Hours</option>
+                        <option value="259200000">3 Days</option>
+                        <option value="604800000">7 Days</option>
+                        <option value="2592000000">30 Days</option>
+                        <option value="permanent">Permanent</option>
+                    </select>
+                </div>
+                <div class="input-group" style="margin-top: 10px;">
+                    <label style="font-size: 14px; color: var(--text-muted); margin-bottom: 5px; display: block;">Reason
+                        for
+                        Ban</label>
+                    <input type="text" id="ban-reason-input" placeholder="e.g. Violation of community guidelines"
+                        style="width: 100%; padding: 12px; border-radius: 12px; background: var(--bg-input); border: 1px solid var(--border-glass); color: var(--text-main); outline: none;">
+                </div>
+                <button id="submit-ban-btn" class="primary-btn mt-4 danger"
+                    style="background: var(--danger-red); border-color: var(--danger-red);">Enforce Ban</button>
+            </div>
+        </div>
+
+        <!-- INCOMING CALL BANNER -->
+        <div id="incoming-call-modal" class="incoming-call-banner hidden">
+            <div class="banner-content">
+                <img id="incoming-caller-avatar" src="" alt="Caller Avatar" class="caller-avatar">
+                <div class="caller-info">
+                    <h4 id="incoming-caller-name" class="caller-name">Caller Name</h4>
+                    <p class="call-type-text">Incoming Video Call</p>
+                </div>
+                <div class="call-actions">
+                    <button id="btn-decline-call" class="action-btn decline">
+                        <span class="material-symbols-rounded">call_end</span>
+                    </button>
+                    <button id="btn-accept-call" class="action-btn accept">
+                        <span class="material-symbols-rounded">call</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TOAST NOTIFICATION CONTAINER -->
+        <div id="toast-container"
+            style="position: absolute; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px;">
+        </div>
+
+        <!-- RINGTONE AUDIO -->
+        <audio id="ringtone-audio" loop>
+            <source src="https://actions.google.com/sounds/v1/alarms/phone_ringing.ogg" type="audio/ogg">
+        </audio>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js?v=2"></script>
+</body>
+
+</html>
